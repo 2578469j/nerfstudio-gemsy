@@ -104,6 +104,9 @@ class ColmapConverterToNerfstudioDataset(BaseConverterToNerfstudioDataset):
     use_single_camera_mode: bool = True
     """Whether to assume all images taken with the same camera characteristics, set to False for multiple cameras in colmap (only works with hloc sfm_tool).
     """
+    undistort: bool = True
+    """Whether to perform undistortion procedure after reconstruction.
+    """
 
     @staticmethod
     def default_colmap_path() -> Path:
@@ -123,7 +126,7 @@ class ColmapConverterToNerfstudioDataset(BaseConverterToNerfstudioDataset):
         image_id_to_depth_path: Optional[Dict[int, Path]] = None,
         camera_mask_path: Optional[Path] = None,
         image_rename_map: Optional[Dict[str, str]] = None,
-    ) -> List[str]:
+    ) -> Tuple[List[str], int]:
         """Save colmap transforms into the output folder
 
         Args:
@@ -148,7 +151,7 @@ class ColmapConverterToNerfstudioDataset(BaseConverterToNerfstudioDataset):
             CONSOLE.log(
                 "[bold yellow]Warning: Could not find existing COLMAP results. " "Not generating transforms.json"
             )
-        return summary_log
+        return summary_log, num_matched_frames
 
     def _export_depth(self) -> Tuple[Optional[Dict[int, Path]], List[str]]:
         """If SFM is used for creating depth image, this method will create the depth images from image in
@@ -221,6 +224,7 @@ class ColmapConverterToNerfstudioDataset(BaseConverterToNerfstudioDataset):
                 matching_method=self.matching_method,
                 refine_intrinsics=self.refine_intrinsics,
                 colmap_cmd=self.colmap_cmd,
+                undistort=self.undistort,
             )
         elif sfm_tool == "hloc":
             if mask_path is not None:

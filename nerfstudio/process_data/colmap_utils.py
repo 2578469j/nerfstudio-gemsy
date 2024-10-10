@@ -17,7 +17,9 @@ Tools supporting the execution of COLMAP and preparation of COLMAP-based dataset
 """
 
 import json
+import os
 from pathlib import Path
+import shutil
 from typing import Any, Dict, Literal, Optional, Union
 
 import appdirs
@@ -99,6 +101,7 @@ def run_colmap(
     matching_method: Literal["vocab_tree", "exhaustive", "sequential"] = "vocab_tree",
     refine_intrinsics: bool = True,
     colmap_cmd: str = "colmap",
+    undistort: bool = True,
 ) -> None:
     """Runs COLMAP on the images.
 
@@ -112,6 +115,7 @@ def run_colmap(
         matching_method: Matching method to use.
         refine_intrinsics: If True, refine intrinsics.
         colmap_cmd: Path to the COLMAP executable.
+        undistort: If True, performs undistortion procedure
     """
 
     colmap_version = get_colmap_version(colmap_cmd)
@@ -182,6 +186,30 @@ def run_colmap(
             ]
             run_command(" ".join(bundle_adjuster_cmd), verbose=verbose)
         CONSOLE.log("[bold green]:tada: Done refining intrinsics.")
+    
+    undistorted_dir = colmap_dir / "undistorted"
+    undistorted_dir.mkdir(parents=True, exist_ok=True)
+    if undistort:
+        with status(msg="[bold yellow]Undistort images...", spinner="dqpb", verbose=verbose):
+            image_undistorter_cmd = [
+                f"{colmap_cmd} image_undistorter",
+                f"--image_path {image_dir}",
+                f"--input_path {sparse_dir}/0",
+                f"--output_path {undistorted_dir}",
+                f"--output_type COLMAP",
+            ]
+            run_command(" ".join(image_undistorter_cmd), verbose=verbose)
+        files = os.listdir(undistorted_dir / "sparse")
+        os.makedirs(undistorted_dir / "sparse" / "0", exist_ok=True)
+        # Copy each file from the source directory to the destination directory
+        for file in files:
+            if file == '0':
+                continue
+            source_file = undistorted_dir / "sparse" / file
+            destination_file = undistorted_dir / "sparse" / "0" / file
+            shutil.move(source_file, destination_file)
+        CONSOLE.log("[bold green]:tada: Done undistorting images.")
+
 
 
 def parse_colmap_camera_params(camera) -> Dict[str, Any]:
